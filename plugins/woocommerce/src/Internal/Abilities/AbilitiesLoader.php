@@ -10,6 +10,9 @@ namespace Automattic\WooCommerce\Internal\Abilities;
 use Automattic\WooCommerce\Abilities\AbilityDefinition;
 use Automattic\WooCommerce\Abilities\ExtensibleAbilities;
 use Automattic\WooCommerce\Abilities\ActionableAbility;
+use Automattic\WooCommerce\Internal\Abilities\Domain\CouponCreate;
+use Automattic\WooCommerce\Internal\Abilities\Domain\CouponUpdate;
+use Automattic\WooCommerce\Internal\Abilities\Domain\CouponsQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderAddNote;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderNotesQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderUpdateStatus;
@@ -47,6 +50,9 @@ class AbilitiesLoader {
 		ProductCreate::class,
 		ProductDelete::class,
 		ProductUpdate::class,
+		CouponsQuery::class,
+		CouponCreate::class,
+		CouponUpdate::class,
 	);
 
 	/**
@@ -107,11 +113,12 @@ class AbilitiesLoader {
 	 * @since 11.3.0
 	 */
 	public static function register_core_resources(): void {
-		foreach ( array( 'product', 'order', 'order_item' ) as $resource_name ) {
+		foreach ( array( 'product', 'order', 'order_item', 'coupon' ) as $resource_name ) {
 			AbilityResources::register( $resource_name );
 		}
 
 		AbilityResources::register_field( 'order', 'billing_email', array( 'personal_data' => true ) );
+		AbilityResources::register_field( 'coupon', 'email_restrictions', array( 'personal_data' => true ) );
 	}
 
 	/**
@@ -185,7 +192,7 @@ class AbilitiesLoader {
 				continue;
 			}
 
-			// Core's product write abilities extend ActionableAbility, so WordPress builds them from their own class.
+			// Core's write abilities extend ActionableAbility, so WordPress builds them from their own class.
 			$is_actionable = is_a( $class_name, ActionableAbility::class, true ) && self::is_core_ability_definition_class( $class_name );
 
 			if ( ! $is_actionable && ! is_a( $class_name, AbilityDefinition::class, true ) ) {
