@@ -131,7 +131,7 @@ class OrderAddNote extends AbstractDomainAbility implements AbilityDefinition {
 				'customer_note' => array(
 					'type'        => 'boolean',
 					'description' => __(
-						'Whether the note is visible to the customer. Defaults to false for a private/admin note.',
+						'Whether the note is visible to the customer. A private note is for the store only.',
 						'woocommerce'
 					),
 					'default'     => false,
