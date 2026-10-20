@@ -1,0 +1,4 @@
+Significance: minor
+Type: add
+
+Add abilities that report system status and list status tools, without server paths or database details.

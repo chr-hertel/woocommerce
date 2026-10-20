@@ -18,6 +18,8 @@ use Automattic\WooCommerce\Internal\Abilities\Domain\ProductCreate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductDelete;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductUpdate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductsQuery;
+use Automattic\WooCommerce\Internal\Abilities\Domain\SystemStatusGet;
+use Automattic\WooCommerce\Internal\Abilities\Domain\SystemStatusToolsQuery;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -47,6 +49,8 @@ class AbilitiesLoader {
 		ProductCreate::class,
 		ProductDelete::class,
 		ProductUpdate::class,
+		SystemStatusGet::class,
+		SystemStatusToolsQuery::class,
 	);
 
 	/**
