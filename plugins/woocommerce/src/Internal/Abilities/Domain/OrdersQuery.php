@@ -248,7 +248,7 @@ class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
 				),
 				'type'               => array(
 					'type'        => 'string',
-					'description' => __( 'Order type to list. Extensions can register more order types. Defaults to shop_order.', 'woocommerce' ),
+					'description' => __( 'Order type to list. Extensions can register more order types.', 'woocommerce' ),
 					'enum'        => self::get_order_type_slugs(),
 					'default'     => 'shop_order',
 				),
@@ -321,7 +321,7 @@ class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
 				'include_line_items' => array(
 					'type'        => 'boolean',
 					'description' => __(
-						'Whether to include order line items in each returned order. Defaults to false.',
+						'Whether to include order line items in each returned order.',
 						'woocommerce'
 					),
 					'default'     => false,
