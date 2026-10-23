@@ -165,12 +165,17 @@ class ShippingZonesQuery extends AbstractDomainAbility implements AbilityDefinit
 			}
 		}
 
-		return array(
-			'instance_id' => (int) $method->get_instance_id(),
-			'method_id'   => (string) $method->id,
-			'title'       => (string) $method->get_title(),
-			'enabled'     => 'yes' === $method->enabled,
-			'settings'    => (object) $settings,
+		return ExtensibleAbilities::add_fields_to_object(
+			array(
+				'instance_id' => (int) $method->get_instance_id(),
+				'method_id'   => (string) $method->id,
+				'title'       => (string) $method->get_title(),
+				'enabled'     => 'yes' === $method->enabled,
+				'order'       => (int) $method->method_order,
+				'settings'    => (object) $settings,
+			),
+			'shipping_method',
+			$method
 		);
 	}
 
@@ -206,26 +211,39 @@ class ShippingZonesQuery extends AbstractDomainAbility implements AbilityDefinit
 					),
 					'methods'   => array(
 						'type'  => 'array',
-						'items' => array(
-							'type'                 => 'object',
-							'properties'           => array(
-								'instance_id' => array( 'type' => 'integer' ),
-								'method_id'   => array( 'type' => 'string' ),
-								'title'       => array( 'type' => 'string' ),
-								'enabled'     => array( 'type' => 'boolean' ),
-								'settings'    => array(
-									'type'                 => 'object',
-									'description'          => __( 'Method settings such as cost or min_amount, as stored.', 'woocommerce' ),
-									'additionalProperties' => array( 'type' => 'string' ),
-								),
-							),
-							'additionalProperties' => false,
-						),
+						'items' => self::get_method_output_schema(),
 					),
 				),
 				'additionalProperties' => false,
 			),
 			'shipping_zone'
+		);
+	}
+
+	/**
+	 * Get the schema of a shipping method in a response.
+	 *
+	 * @return array
+	 */
+	private static function get_method_output_schema(): array {
+		return ExtensibleAbilities::add_fields_schema(
+			array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'instance_id' => array( 'type' => 'integer' ),
+					'method_id'   => array( 'type' => 'string' ),
+					'title'       => array( 'type' => 'string' ),
+					'enabled'     => array( 'type' => 'boolean' ),
+					'order'       => array( 'type' => 'integer' ),
+					'settings'    => array(
+						'type'                 => 'object',
+						'description'          => __( 'Method settings such as cost or min_amount, as stored.', 'woocommerce' ),
+						'additionalProperties' => array( 'type' => 'string' ),
+					),
+				),
+				'additionalProperties' => false,
+			),
+			'shipping_method'
 		);
 	}
 }
