@@ -809,6 +809,9 @@ trait ProductAbilityTrait {
 			'external_url'      => $product instanceof \WC_Product_External ? $product->get_product_url() : null,
 			'button_text'       => $product instanceof \WC_Product_External ? $product->get_button_text() : null,
 			'grouped_products'  => $product instanceof \WC_Product_Grouped ? array_map( 'absint', $product->get_children( 'edit' ) ) : array(),
+			'categories'        => self::format_product_terms( $product->get_category_ids( 'edit' ), 'product_cat' ),
+			'tags'              => self::format_product_terms( $product->get_tag_ids( 'edit' ), 'product_tag' ),
+			'brands'            => self::format_product_terms( $product->get_brand_ids( 'edit' ), 'product_brand' ),
 			'date_created'      => wc_rest_prepare_date_response( $product->get_date_created(), false ),
 			'date_created_gmt'  => wc_rest_prepare_date_response( $product->get_date_created() ),
 			'date_modified'     => wc_rest_prepare_date_response( $product->get_date_modified(), false ),
@@ -888,6 +891,9 @@ trait ProductAbilityTrait {
 						'description' => __( 'Product IDs included as children of a grouped product.', 'woocommerce' ),
 						'items'       => array( 'type' => 'integer' ),
 					),
+					'categories'        => self::get_product_terms_output_schema(),
+					'tags'              => self::get_product_terms_output_schema(),
+					'brands'            => self::get_product_terms_output_schema(),
 					'date_created'      => array(
 						'type'   => array( 'string', 'null' ),
 						'format' => 'date-time',
@@ -908,6 +914,66 @@ trait ProductAbilityTrait {
 				'additionalProperties' => false,
 			),
 			'product'
+		);
+	}
+
+	/**
+	 * Product taxonomies that products-query filters by, keyed by input property.
+	 *
+	 * @return array<string, string>
+	 */
+	protected static function get_product_term_filter_taxonomies(): array {
+		return array(
+			'category' => 'product_cat',
+			'tag'      => 'product_tag',
+			'brand'    => 'product_brand',
+		);
+	}
+
+	/**
+	 * Format the terms of a product. Term caches are primed by the product query, so this adds no queries per product.
+	 *
+	 * @param array<int, int> $term_ids Term IDs.
+	 * @param string          $taxonomy Taxonomy.
+	 * @return array<int, array{id: int, name: string, slug: string}>
+	 */
+	protected static function format_product_terms( array $term_ids, string $taxonomy ): array {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			return array();
+		}
+
+		$terms = array();
+		foreach ( $term_ids as $term_id ) {
+			$term = get_term( (int) $term_id, $taxonomy );
+			if ( $term instanceof \WP_Term ) {
+				$terms[] = array(
+					'id'   => $term->term_id,
+					'name' => html_entity_decode( $term->name, ENT_QUOTES | ENT_HTML5 ),
+					'slug' => $term->slug,
+				);
+			}
+		}
+
+		return $terms;
+	}
+
+	/**
+	 * Schema of a product's terms in a taxonomy.
+	 *
+	 * @return array
+	 */
+	private static function get_product_terms_output_schema(): array {
+		return array(
+			'type'  => 'array',
+			'items' => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'id'   => array( 'type' => 'integer' ),
+					'name' => array( 'type' => 'string' ),
+					'slug' => array( 'type' => 'string' ),
+				),
+				'additionalProperties' => false,
+			),
 		);
 	}
 
