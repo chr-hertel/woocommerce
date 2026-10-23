@@ -159,7 +159,7 @@ class ProductDelete extends AbstractDomainAbility implements AbilityDefinition {
 				'force' => array(
 					'type'        => 'boolean',
 					'description' => __(
-						'Permanently delete the product. Defaults to false, which moves the product to trash.',
+						'Permanently delete the product instead of moving it to the trash.',
 						'woocommerce'
 					),
 					'default'     => false,
