@@ -10,6 +10,7 @@ namespace Automattic\WooCommerce\Internal\Abilities;
 use Automattic\WooCommerce\Abilities\AbilityDefinition;
 use Automattic\WooCommerce\Abilities\ExtensibleAbilities;
 use Automattic\WooCommerce\Abilities\ActionableAbility;
+use Automattic\WooCommerce\Internal\Abilities\Domain\CustomersQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderAddNote;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderNotesQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderUpdateStatus;
@@ -47,6 +48,7 @@ class AbilitiesLoader {
 		ProductCreate::class,
 		ProductDelete::class,
 		ProductUpdate::class,
+		CustomersQuery::class,
 	);
 
 	/**
@@ -107,11 +109,29 @@ class AbilitiesLoader {
 	 * @since 11.3.0
 	 */
 	public static function register_core_resources(): void {
-		foreach ( array( 'product', 'order', 'order_item' ) as $resource_name ) {
+		foreach ( array( 'product', 'order', 'order_item', 'customer' ) as $resource_name ) {
 			AbilityResources::register( $resource_name );
 		}
 
 		AbilityResources::register_field( 'order', 'billing_email', array( 'personal_data' => true ) );
+
+		foreach ( array( 'email', 'first_name', 'last_name', 'username' ) as $field ) {
+			AbilityResources::register_field( 'customer', $field, array( 'personal_data' => true ) );
+		}
+		$address_fields = array_fill_keys( array( 'first_name', 'last_name', 'company', 'address_1', 'address_2', 'city', 'postcode', 'email', 'phone' ), array() );
+		// Country and state stay, so location questions still work.
+		$address_fields['state']   = array( 'personal_data' => false );
+		$address_fields['country'] = array( 'personal_data' => false );
+		foreach ( array( 'billing', 'shipping' ) as $group ) {
+			AbilityResources::register_field_group(
+				'customer',
+				$group,
+				array(
+					'personal_data' => true,
+					'fields'        => $address_fields,
+				)
+			);
+		}
 	}
 
 	/**
