@@ -1,0 +1,4 @@
+Significance: minor
+Type: add
+
+Add coupon abilities that find, create and update coupons, including whether each coupon can be used now.
