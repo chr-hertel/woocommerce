@@ -21,11 +21,6 @@ defined( 'ABSPATH' ) || exit;
 class CustomersQuery extends AbstractDomainAbility implements AbilityDefinition {
 
 	/**
-	 * Address keys that identify a person. Country and state stay, so location questions still work.
-	 */
-	private const PERSONAL_ADDRESS_KEYS = array( 'first_name', 'last_name', 'company', 'address_1', 'address_2', 'city', 'postcode', 'email', 'phone' );
-
-	/**
 	 * Get the ability name.
 	 *
 	 * @return string
@@ -76,9 +71,8 @@ class CustomersQuery extends AbstractDomainAbility implements AbilityDefinition 
 	 * @since 11.4.0
 	 */
 	public static function execute( array $input ) {
-		$shared = PersonalData::is_shared( 'customer' );
 		foreach ( array( 'search', 'email' ) as $lookup ) {
-			if ( ! empty( $input[ $lookup ] ) && ! $shared ) {
+			if ( ! empty( $input[ $lookup ] ) && ! PersonalData::is_shared( 'customer' ) ) {
 				return self::lookup_refused( $lookup );
 			}
 		}
@@ -114,7 +108,7 @@ class CustomersQuery extends AbstractDomainAbility implements AbilityDefinition 
 		$customers = array();
 		foreach ( $query->get_results() as $user ) {
 			try {
-				$customers[] = self::format_customer_for_response( new \WC_Customer( $user->ID ), $shared );
+				$customers[] = self::format_customer_for_response( new \WC_Customer( $user->ID ) );
 			} catch ( \Exception $e ) {
 				continue;
 			}
@@ -161,38 +155,25 @@ class CustomersQuery extends AbstractDomainAbility implements AbilityDefinition 
 	 * Format a customer for ability output.
 	 *
 	 * @param \WC_Customer $customer Customer.
-	 * @param bool         $shared   Whether personal data may be returned.
 	 * @return array
 	 */
-	private static function format_customer_for_response( \WC_Customer $customer, bool $shared ): array {
-		$addresses = array(
-			'billing'  => $customer->get_billing( 'edit' ),
-			'shipping' => $customer->get_shipping( 'edit' ),
-		);
-		foreach ( $addresses as $type => $address ) {
-			foreach ( self::PERSONAL_ADDRESS_KEYS as $key ) {
-				if ( array_key_exists( $key, $address ) ) {
-					$addresses[ $type ][ $key ] = $shared ? (string) $address[ $key ] : null;
-				}
-			}
-		}
-
+	private static function format_customer_for_response( \WC_Customer $customer ): array {
 		$last_order = $customer->get_last_order();
 
 		return ExtensibleAbilities::add_fields_to_object(
 			array(
 				'id'                 => $customer->get_id(),
-				'email'              => $shared ? $customer->get_email() : null,
-				'first_name'         => $shared ? $customer->get_first_name() : null,
-				'last_name'          => $shared ? $customer->get_last_name() : null,
-				'username'           => $shared ? $customer->get_username() : null,
+				'email'              => $customer->get_email(),
+				'first_name'         => $customer->get_first_name(),
+				'last_name'          => $customer->get_last_name(),
+				'username'           => $customer->get_username(),
 				'role'               => $customer->get_role(),
 				'is_paying_customer' => (bool) $customer->get_is_paying_customer(),
 				'order_count'        => $customer->get_order_count(),
 				'total_spent'        => wc_format_decimal( $customer->get_total_spent(), wc_get_price_decimals() ),
 				'last_order_id'      => $last_order ? $last_order->get_id() : null,
-				'billing'            => $addresses['billing'],
-				'shipping'           => $addresses['shipping'],
+				'billing'            => $customer->get_billing( 'edit' ),
+				'shipping'           => $customer->get_shipping( 'edit' ),
 				'date_created'       => $customer->get_date_created() ? $customer->get_date_created()->format( 'c' ) : null,
 				'date_modified'      => $customer->get_date_modified() ? $customer->get_date_modified()->format( 'c' ) : null,
 			),

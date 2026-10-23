@@ -114,6 +114,24 @@ class AbilitiesLoader {
 		}
 
 		AbilityResources::register_field( 'order', 'billing_email', array( 'personal_data' => true ) );
+
+		foreach ( array( 'email', 'first_name', 'last_name', 'username' ) as $field ) {
+			AbilityResources::register_field( 'customer', $field, array( 'personal_data' => true ) );
+		}
+		$address_fields = array_fill_keys( array( 'first_name', 'last_name', 'company', 'address_1', 'address_2', 'city', 'postcode', 'email', 'phone' ), array() );
+		// Country and state stay, so location questions still work.
+		$address_fields['state']   = array( 'personal_data' => false );
+		$address_fields['country'] = array( 'personal_data' => false );
+		foreach ( array( 'billing', 'shipping' ) as $group ) {
+			AbilityResources::register_field_group(
+				'customer',
+				$group,
+				array(
+					'personal_data' => true,
+					'fields'        => $address_fields,
+				)
+			);
+		}
 	}
 
 	/**
