@@ -24,8 +24,8 @@ class AbilitiesContractTest extends DomainAbilityTestCase {
 	 * Abilities over the budget, with the budget they must stay within. Shrink, never grow.
 	 */
 	private const TOKEN_BUDGET_EXCEPTIONS = array(
-		'woocommerce/product-create' => 2800,
-		'woocommerce/product-update' => 2900,
+		'woocommerce/product-create' => 3100,
+		'woocommerce/product-update' => 3200,
 	);
 
 	/**
@@ -118,13 +118,13 @@ class AbilitiesContractTest extends DomainAbilityTestCase {
 	public function test_schemas_stay_within_token_budget(): void {
 		$offenders = array();
 		foreach ( $this->get_core_abilities() as $name => $ability ) {
-			// About four bytes of compact JSON per token; within a few percent of o200k_base for these schemas.
+			// Compact JSON runs 3.6 to 4.5 bytes per o200k_base token for these schemas; the low end keeps the estimate from undercounting.
 			$tokens = (int) ceil(
 				strlen(
 					(string) wp_json_encode(
 						array( $name, $ability->get_description(), $ability->get_input_schema(), $ability->get_output_schema() )
 					)
-				) / 4
+				) / 3.6
 			);
 			$budget = self::TOKEN_BUDGET_EXCEPTIONS[ $name ] ?? self::TOKEN_BUDGET;
 			if ( $tokens > $budget ) {
