@@ -7,31 +7,24 @@ declare( strict_types=1 );
 
 namespace Automattic\WooCommerce\Internal\Abilities\Domain;
 
-use Automattic\WooCommerce\Abilities\AbilityDefinition;
-use Automattic\WooCommerce\Abilities\ExtensibleAbilities;
+use Automattic\WooCommerce\Abilities\QueryAbility;
 use Automattic\WooCommerce\Enums\ProductType;
 use Automattic\WooCommerce\Internal\Abilities\AbilitiesLoader;
+use Automattic\WooCommerce\Internal\Abilities\Domain\Traits\DomainAbilityHelpers;
 use Automattic\WooCommerce\Internal\Abilities\Domain\Traits\ProductAbilityTrait;
+use Automattic\WooCommerce\Internal\Abilities\Resources\ProductResource;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Registers the WooCommerce products query ability.
  */
-class ProductsQuery extends AbstractDomainAbility implements AbilityDefinition {
+class ProductsQuery extends QueryAbility {
 
+	use DomainAbilityHelpers;
 	use ProductAbilityTrait;
 
-	/**
-	 * Get the ability name.
-	 *
-	 * @return string
-	 *
-	 * @since 10.9.0
-	 */
-	public static function get_name(): string {
-		return 'woocommerce/products-query';
-	}
+	public const ABILITY_NAME = 'woocommerce/products-query';
 
 	/**
 	 * Get the ability registration arguments.
@@ -48,9 +41,7 @@ class ProductsQuery extends AbstractDomainAbility implements AbilityDefinition {
 				'woocommerce'
 			),
 			'category'            => 'woocommerce',
-			'input_schema'        => self::get_input_schema(),
-			'output_schema'       => self::get_collection_output_schema( 'products', self::get_product_output_schema() ),
-			'execute_callback'    => array( __CLASS__, 'execute' ),
+			'input_schema'        => self::build_input_schema(),
 			'permission_callback' => array( __CLASS__, 'can_query_products' ),
 			'meta'                => array(
 				'show_in_rest' => true,
@@ -68,14 +59,30 @@ class ProductsQuery extends AbstractDomainAbility implements AbilityDefinition {
 	}
 
 	/**
-	 * Query products.
+	 * Resource the ability returns.
+	 *
+	 * @return string
+	 */
+	public function get_resource(): string {
+		return ProductResource::NAME;
+	}
+
+	/**
+	 * Key of the list in the output.
+	 *
+	 * @return string
+	 */
+	protected function get_collection_key(): string {
+		return 'products';
+	}
+
+	/**
+	 * Find the products for an ID or for the filters.
 	 *
 	 * @param array $input Ability input.
 	 * @return array|\WP_Error
-	 *
-	 * @since 10.9.0
 	 */
-	public static function execute( array $input ) {
+	protected function query( array $input ) {
 		if ( ! empty( $input['id'] ) && ! empty( $input['filters'] ) ) {
 			return new \WP_Error(
 				'woocommerce_ability_filters_with_id',
@@ -100,7 +107,7 @@ class ProductsQuery extends AbstractDomainAbility implements AbilityDefinition {
 			}
 
 			return array(
-				'products'    => array( self::format_product_for_response( $product ) ),
+				'items'       => array( $product ),
 				'total_pages' => 1,
 				'page'        => 1,
 				'per_page'    => 1,
@@ -137,7 +144,7 @@ class ProductsQuery extends AbstractDomainAbility implements AbilityDefinition {
 			$args['s'] = wc_clean( $input['search'] );
 		}
 
-		$extension_args = ExtensibleAbilities::get_query_args( 'product', $input );
+		$extension_args = $this->get_extension_query_args( $input );
 		if ( is_wp_error( $extension_args ) ) {
 			return $extension_args;
 		}
@@ -149,12 +156,7 @@ class ProductsQuery extends AbstractDomainAbility implements AbilityDefinition {
 		$pages    = is_object( $results ) && isset( $results->max_num_pages ) ? (int) $results->max_num_pages : ( count( $products ) > 0 ? 1 : 0 );
 
 		return array(
-			'products'    => array_map(
-				static function ( $product ) {
-					return self::format_product_for_response( $product );
-				},
-				$products
-			),
+			'items'       => $products,
 			'total_pages' => $pages,
 			'page'        => $page,
 			'per_page'    => $per_page,
@@ -180,8 +182,8 @@ class ProductsQuery extends AbstractDomainAbility implements AbilityDefinition {
 	 *
 	 * @return array
 	 */
-	private static function get_input_schema(): array {
-		$schema = array(
+	private static function build_input_schema(): array {
+		return array(
 			'type'                 => 'object',
 			'properties'           => array(
 				'id'                 => array(
@@ -224,6 +226,5 @@ class ProductsQuery extends AbstractDomainAbility implements AbilityDefinition {
 			'additionalProperties' => false,
 			'default'              => array(),
 		);
-		return ExtensibleAbilities::add_query_filters_schema( $schema, 'product' );
 	}
 }

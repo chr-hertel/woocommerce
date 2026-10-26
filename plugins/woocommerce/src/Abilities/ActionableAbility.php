@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  * a subclass as the `ability_class`. The execute callback loads the object,
  * checks the `extensions` input against the field schemas, changes the object
  * in memory, writes the fields with their `update_callback`, runs the validators
- * that ExtensibleAbilities::register_validator() adds, and then saves it. A
+ * that AbilityResources::register_validator() adds, and then saves it. A
  * rejection from any step saves nothing.
  *
  * The input schema gets the `extensions` property of the resource, so the
@@ -31,16 +31,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 11.3.0
  */
-abstract class ActionableAbility extends \WP_Ability {
-
-	/**
-	 * Resource that the ability changes, for example `product` or `order`. The fields of this resource are written.
-	 *
-	 * @since 11.3.0
-	 *
-	 * @return string
-	 */
-	abstract public function get_resource(): string;
+abstract class ActionableAbility extends ResourceAbility {
 
 	/**
 	 * Load the object to change.
@@ -65,14 +56,17 @@ abstract class ActionableAbility extends \WP_Ability {
 
 	/**
 	 * The ability output for the saved object. It must match the output schema
-	 * of the ability.
+	 * of the ability. The default puts the object under the name of the resource,
+	 * as the default output shape has it.
 	 *
 	 * @since 11.3.0
 	 *
 	 * @param \WC_Data $subject Saved object.
 	 * @return mixed
 	 */
-	abstract public function prepare_response( $subject );
+	public function prepare_response( $subject ) {
+		return $this->prepare_output( array( $this->get_resource() => $subject ) );
+	}
 
 	/**
 	 * Save the changed object. The default calls WC_Data::save(). When the save
@@ -115,7 +109,7 @@ abstract class ActionableAbility extends \WP_Ability {
 		}
 
 		$updates = array();
-		if ( ExtensibleAbilities::is_enabled() ) {
+		if ( AbilityResources::is_enabled() ) {
 			$extensions = is_array( $input['extensions'] ?? null ) ? $input['extensions'] : array();
 			$updates    = $this->prepare_fields( $extensions );
 			if ( is_wp_error( $updates ) ) {
@@ -129,7 +123,7 @@ abstract class ActionableAbility extends \WP_Ability {
 		}
 
 		$rejected = $this->apply_fields( $subject, $updates );
-		if ( null === $rejected && ExtensibleAbilities::is_enabled() ) {
+		if ( null === $rejected && AbilityResources::is_enabled() ) {
 			$rejected = $this->validate( $subject );
 		}
 		if ( null !== $rejected ) {
@@ -153,7 +147,7 @@ abstract class ActionableAbility extends \WP_Ability {
 	 */
 	protected function prepare_properties( array $args ): array {
 		$args['execute_callback'] = array( $this, 'execute_change' );
-		if ( is_array( $args['input_schema'] ?? null ) && ExtensibleAbilities::is_enabled() ) {
+		if ( is_array( $args['input_schema'] ?? null ) && AbilityResources::is_enabled() ) {
 			$args['input_schema'] = $this->add_extensions_input_schema( $args['input_schema'] );
 		}
 		return parent::prepare_properties( $args );
@@ -168,7 +162,7 @@ abstract class ActionableAbility extends \WP_Ability {
 	 * @return array|\WP_Error A list of update_callback and value pairs, or a WP_Error when a value is rejected.
 	 */
 	private function prepare_fields( array $values ) {
-		$registered = ExtensibleAbilities::get_fields( $this->get_resource() );
+		$registered = AbilityResources::get_extension_fields( $this->get_resource() );
 		$updates    = array();
 		foreach ( $values as $namespace => $fields ) {
 			foreach ( (array) $fields as $field => $value ) {
@@ -223,7 +217,7 @@ abstract class ActionableAbility extends \WP_Ability {
 	 * @return \WP_Error|null A WP_Error when a validator refuses the change.
 	 */
 	private function validate( $subject ): ?\WP_Error {
-		foreach ( ExtensibleAbilities::get_validators( $this->get_resource() ) as $args ) {
+		foreach ( AbilityResources::get_validators( $this->get_resource() ) as $args ) {
 			$rejected = self::run_callback( $args['callback'], array( $subject, $this ), array( 'namespace' => $args['namespace'] ) );
 			if ( null !== $rejected ) {
 				return $rejected;
@@ -278,7 +272,7 @@ abstract class ActionableAbility extends \WP_Ability {
 			'description'          => __( 'Values to write to the fields that extensions add, keyed by extension namespace, then field. A null value deletes the value.', 'woocommerce' ),
 			'additionalProperties' => false,
 		);
-		foreach ( ExtensibleAbilities::get_fields( $this->get_resource() ) as $namespace => $fields ) {
+		foreach ( AbilityResources::get_extension_fields( $this->get_resource() ) as $namespace => $fields ) {
 			$writable = array_filter(
 				$fields,
 				static function ( array $args ): bool {

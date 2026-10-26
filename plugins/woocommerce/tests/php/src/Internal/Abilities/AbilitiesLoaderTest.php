@@ -2754,10 +2754,9 @@ class AbilitiesLoaderTest extends \WC_Unit_Test_Case {
 
 		$registration_args = ProductsQuery::get_registration_args();
 
-		$this->assertSame( ProductsQuery::get_name(), $ability->get_name() );
+		$this->assertInstanceOf( ProductsQuery::class, $ability );
+		$this->assertSame( ProductsQuery::ABILITY_NAME, $ability->get_name() );
 		$this->assertSame( $registration_args['category'], $ability->get_category() );
-		$this->assertSame( $registration_args['input_schema'], $ability->get_input_schema() );
-		$this->assertSame( $registration_args['output_schema'], $ability->get_output_schema() );
 	}
 
 	/**

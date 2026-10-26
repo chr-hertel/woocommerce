@@ -7,8 +7,10 @@ declare( strict_types=1 );
 
 namespace Automattic\WooCommerce\Internal\Abilities\Domain;
 
-use Automattic\WooCommerce\Abilities\AbilityDefinition;
+use Automattic\WooCommerce\Abilities\ActionableAbility;
+use Automattic\WooCommerce\Internal\Abilities\Domain\Traits\DomainAbilityHelpers;
 use Automattic\WooCommerce\Internal\Abilities\Domain\Traits\OrderAbilityTrait;
+use Automattic\WooCommerce\Internal\Abilities\Resources\OrderResource;
 use Automattic\WooCommerce\Utilities\OrderUtil;
 
 defined( 'ABSPATH' ) || exit;
@@ -16,20 +18,26 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Registers the WooCommerce order update status ability.
  */
-class OrderUpdateStatus extends AbstractDomainAbility implements AbilityDefinition {
+class OrderUpdateStatus extends ActionableAbility {
 
+	use DomainAbilityHelpers;
 	use OrderAbilityTrait;
 
+	public const ABILITY_NAME = 'woocommerce/order-update-status';
+
 	/**
-	 * Get the ability name.
+	 * Loaded order, as status and the timestamps of the paid and completed dates, for save() to restore.
 	 *
-	 * @return string
-	 *
-	 * @since 10.9.0
+	 * @var array{0: string, 1: ?int, 2: ?int}
 	 */
-	public static function get_name(): string {
-		return 'woocommerce/order-update-status';
-	}
+	private array $loaded = array( '', null, null );
+
+	/**
+	 * Status and note that change() accepted, for save().
+	 *
+	 * @var array{0: string, 1: string}
+	 */
+	private array $pending = array( '', '' );
 
 	/**
 	 * Get the ability registration arguments.
@@ -46,9 +54,7 @@ class OrderUpdateStatus extends AbstractDomainAbility implements AbilityDefiniti
 				'woocommerce'
 			),
 			'category'            => 'woocommerce',
-			'input_schema'        => self::get_input_schema(),
-			'output_schema'       => self::get_entity_output_schema( 'order', self::get_order_output_schema() ),
-			'execute_callback'    => array( __CLASS__, 'execute' ),
+			'input_schema'        => self::build_input_schema(),
 			'permission_callback' => array( __CLASS__, 'can_edit_order' ),
 			'meta'                => array(
 				'show_in_rest' => true,
@@ -66,20 +72,32 @@ class OrderUpdateStatus extends AbstractDomainAbility implements AbilityDefiniti
 	}
 
 	/**
-	 * Update an order status.
+	 * Resource the ability changes.
+	 *
+	 * @return string
+	 */
+	public function get_resource(): string {
+		return OrderResource::NAME;
+	}
+
+	/**
+	 * Load the order.
 	 *
 	 * @param array $input Ability input.
-	 * @return array|\WP_Error
-	 *
-	 * @since 10.9.0
+	 * @return \WC_Data|\WP_Error
 	 */
-	public static function execute( array $input ) {
-		$order = self::get_order_from_input( $input );
+	public function load( array $input ) {
+		return $this->load_resource( (int) ( $input['id'] ?? 0 ) );
+	}
 
-		if ( is_wp_error( $order ) ) {
-			return $order;
-		}
-
+	/**
+	 * Set the new status so validators see it, without the transition hooks that save() runs.
+	 *
+	 * @param \WC_Order $subject Order to change.
+	 * @param array     $input   Ability input.
+	 * @return null|\WP_Error
+	 */
+	public function change( $subject, array $input ) {
 		if ( empty( $input['status'] ) ) {
 			return new \WP_Error(
 				'woocommerce_order_status_required',
@@ -98,7 +116,7 @@ class OrderUpdateStatus extends AbstractDomainAbility implements AbilityDefiniti
 			);
 		}
 
-		if ( $status === $order->get_status() ) {
+		if ( $status === $subject->get_status() ) {
 			return new \WP_Error(
 				'woocommerce_order_status_unchanged',
 				__(
@@ -109,7 +127,7 @@ class OrderUpdateStatus extends AbstractDomainAbility implements AbilityDefiniti
 			);
 		}
 
-		if ( ! $order->is_valid_status( $status ) ) {
+		if ( ! $subject->is_valid_status( $status ) ) {
 			return new \WP_Error(
 				'woocommerce_order_status_invalid',
 				/* translators: %s: order status slug. */
@@ -118,30 +136,49 @@ class OrderUpdateStatus extends AbstractDomainAbility implements AbilityDefiniti
 			);
 		}
 
+		$paid          = $subject->get_date_paid( 'edit' );
+		$completed     = $subject->get_date_completed( 'edit' );
+		$this->loaded  = array( $subject->get_status(), $paid ? $paid->getTimestamp() : null, $completed ? $completed->getTimestamp() : null );
+		$this->pending = array( $status, isset( $input['note'] ) ? wp_kses_post( $input['note'] ) : '' );
+		$subject->set_status( $status );
+		return null;
+	}
+
+	/**
+	 * Save through WC_Order::update_status(), which order classes can override.
+	 *
+	 * @param \WC_Order $subject Changed order.
+	 * @return null|\WP_Error
+	 */
+	public function save( $subject ) {
+		// Back to the loaded order, so update_status() makes the manual change from it, as without validators.
+		$subject->set_status( $this->loaded[0] );
+		$subject->set_date_paid( $this->loaded[1] );
+		$subject->set_date_completed( $this->loaded[2] );
+
 		try {
-			$updated = $order->update_status(
-				$status,
-				isset( $input['note'] ) ? wp_kses_post( $input['note'] ) : '',
-				true
-			);
+			$updated = $subject->update_status( $this->pending[0], $this->pending[1], true );
 		} catch ( \Exception $e ) {
-			return new \WP_Error(
-				'woocommerce_order_status_update_failed',
-				$e->getMessage(),
-				array( 'status' => 400 )
-			);
+			return new \WP_Error( 'woocommerce_order_status_update_failed', $e->getMessage(), array( 'status' => 400 ) );
 		}
 
 		if ( ! $updated ) {
-			return new \WP_Error(
-				'woocommerce_order_status_update_failed',
-				__( 'Failed to update order status.', 'woocommerce' ),
-				array( 'status' => 500 )
-			);
+			return new \WP_Error( 'woocommerce_order_status_update_failed', __( 'Failed to update order status.', 'woocommerce' ), array( 'status' => 500 ) );
 		}
+		return null;
+	}
 
+	/**
+	 * The updated order, without line items.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	protected function get_output_shape(): array {
 		return array(
-			'order' => self::format_order_for_response( $order, false ),
+			'order' => array(
+				'$ref'    => OrderResource::NAME,
+				'exclude' => array( 'line_items' ),
+			),
 		);
 	}
 
@@ -150,7 +187,7 @@ class OrderUpdateStatus extends AbstractDomainAbility implements AbilityDefiniti
 	 *
 	 * @return array
 	 */
-	private static function get_input_schema(): array {
+	private static function build_input_schema(): array {
 		return array(
 			'type'                 => 'object',
 			'properties'           => array(

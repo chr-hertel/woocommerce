@@ -1,0 +1,4 @@
+Significance: minor
+Type: dev
+
+Move the experimental extensible abilities API from ExtensibleAbilities to AbilityResources, and remove ExtensibleAbilities.

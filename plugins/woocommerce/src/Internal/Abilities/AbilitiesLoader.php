@@ -8,8 +8,8 @@ declare( strict_types=1 );
 namespace Automattic\WooCommerce\Internal\Abilities;
 
 use Automattic\WooCommerce\Abilities\AbilityDefinition;
-use Automattic\WooCommerce\Abilities\ExtensibleAbilities;
-use Automattic\WooCommerce\Abilities\ActionableAbility;
+use Automattic\WooCommerce\Abilities\AbilityResources;
+use Automattic\WooCommerce\Abilities\ResourceAbility;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderAddNote;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderNotesQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderUpdateStatus;
@@ -18,6 +18,8 @@ use Automattic\WooCommerce\Internal\Abilities\Domain\ProductCreate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductDelete;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductUpdate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductsQuery;
+use Automattic\WooCommerce\Internal\Abilities\Resources\OrderResource;
+use Automattic\WooCommerce\Internal\Abilities\Resources\ProductResource;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -87,7 +89,8 @@ class AbilitiesLoader {
 		 * Support both old (pre-6.9) and new (6.9+) action names.
 		 */
 		AbilitiesCategories::init();
-		add_action( 'woocommerce_extensible_abilities_resources_init', array( __CLASS__, 'register_core_resources' ), 0 );
+		add_action( 'abilities_api_init', array( __CLASS__, 'register_core_resources' ), 0 );
+		add_action( 'wp_abilities_api_init', array( __CLASS__, 'register_core_resources' ), 0 );
 		add_action( 'abilities_api_init', array( __CLASS__, 'init_extensions' ), 0 );
 		add_action( 'wp_abilities_api_init', array( __CLASS__, 'init_extensions' ), 0 );
 		add_action( 'abilities_api_init', array( __CLASS__, 'register_abilities' ) );
@@ -99,16 +102,15 @@ class AbilitiesLoader {
 	}
 
 	/**
-	 * Register the resources that Core's abilities format, so extensions can register fields on them.
+	 * Register the resources that Core's abilities format and their fields, also while the extensible abilities feature is off.
 	 *
 	 * @internal
 	 *
 	 * @since 11.3.0
 	 */
 	public static function register_core_resources(): void {
-		foreach ( array( 'product', 'order', 'order_item' ) as $resource_name ) {
-			ExtensibleAbilities::register_resource( $resource_name );
-		}
+		( new ProductResource() )->register();
+		( new OrderResource() )->register();
 	}
 
 	/**
@@ -143,12 +145,12 @@ class AbilitiesLoader {
 	 * @since 11.3.0
 	 */
 	public static function init_extensions(): void {
-		if ( did_action( 'woocommerce_extensible_abilities_init' ) || ! ExtensibleAbilities::is_enabled() ) {
+		if ( did_action( 'woocommerce_extensible_abilities_init' ) || ! AbilityResources::is_enabled() ) {
 			return;
 		}
 
 		/**
-		 * Fires when extensions can register their resources with ExtensibleAbilities.
+		 * Fires when extensions can register their resources with AbilityResources.
 		 *
 		 * Fires one time, before `woocommerce_extensible_abilities_init`, only when the
 		 * experimental `extensible_abilities` feature is on.
@@ -158,7 +160,7 @@ class AbilitiesLoader {
 		do_action( 'woocommerce_extensible_abilities_resources_init' );
 
 		/**
-		 * Fires when extensions can register their fields with ExtensibleAbilities.
+		 * Fires when extensions can register their fields, query filters and validators with AbilityResources.
 		 *
 		 * Fires one time, only when the experimental `extensible_abilities` feature is on.
 		 *
@@ -182,14 +184,14 @@ class AbilitiesLoader {
 				continue;
 			}
 
-			// Core's product write abilities extend ActionableAbility, so WordPress builds them from their own class.
-			$is_actionable = is_a( $class_name, ActionableAbility::class, true ) && self::is_core_ability_definition_class( $class_name );
+			// Core's resource abilities extend ResourceAbility, so WordPress builds them from their own class.
+			$is_resource_ability = is_a( $class_name, ResourceAbility::class, true ) && self::is_core_ability_definition_class( $class_name );
 
-			if ( ! $is_actionable && ! is_a( $class_name, AbilityDefinition::class, true ) ) {
+			if ( ! $is_resource_ability && ! is_a( $class_name, AbilityDefinition::class, true ) ) {
 				continue;
 			}
 
-			$ability_name = $is_actionable ? $class_name::ABILITY_NAME : $class_name::get_name();
+			$ability_name = $is_resource_ability ? $class_name::ABILITY_NAME : $class_name::get_name();
 
 			if ( '' === $ability_name ) {
 				continue;
@@ -223,7 +225,7 @@ class AbilitiesLoader {
 			}
 
 			$args = $class_name::get_registration_args();
-			if ( $is_actionable ) {
+			if ( $is_resource_ability ) {
 				$args['ability_class'] = $class_name;
 			}
 

@@ -7,10 +7,11 @@ declare( strict_types=1 );
 
 namespace Automattic\WooCommerce\Internal\Abilities\Domain;
 
-use Automattic\WooCommerce\Abilities\AbilityDefinition;
-use Automattic\WooCommerce\Abilities\ExtensibleAbilities;
+use Automattic\WooCommerce\Abilities\QueryAbility;
 use Automattic\WooCommerce\Internal\Abilities\AbilitiesLoader;
+use Automattic\WooCommerce\Internal\Abilities\Domain\Traits\DomainAbilityHelpers;
 use Automattic\WooCommerce\Internal\Abilities\Domain\Traits\OrderAbilityTrait;
+use Automattic\WooCommerce\Internal\Abilities\Resources\OrderResource;
 use Automattic\WooCommerce\Utilities\OrderUtil;
 
 defined( 'ABSPATH' ) || exit;
@@ -18,20 +19,12 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Registers the WooCommerce orders query ability.
  */
-class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
+class OrdersQuery extends QueryAbility {
 
+	use DomainAbilityHelpers;
 	use OrderAbilityTrait;
 
-	/**
-	 * Get the ability name.
-	 *
-	 * @return string
-	 *
-	 * @since 10.9.0
-	 */
-	public static function get_name(): string {
-		return 'woocommerce/orders-query';
-	}
+	public const ABILITY_NAME = 'woocommerce/orders-query';
 
 	/**
 	 * Get the ability registration arguments.
@@ -48,9 +41,7 @@ class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
 				'woocommerce'
 			),
 			'category'            => 'woocommerce',
-			'input_schema'        => self::get_input_schema(),
-			'output_schema'       => self::get_collection_output_schema( 'orders', self::get_order_output_schema() ),
-			'execute_callback'    => array( __CLASS__, 'execute' ),
+			'input_schema'        => self::build_input_schema(),
 			'permission_callback' => array( __CLASS__, 'can_query_orders' ),
 			'meta'                => array(
 				'show_in_rest' => true,
@@ -68,16 +59,40 @@ class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
 	}
 
 	/**
-	 * Query orders.
+	 * Resource the ability returns.
+	 *
+	 * @return string
+	 */
+	public function get_resource(): string {
+		return OrderResource::NAME;
+	}
+
+	/**
+	 * Key of the list in the output.
+	 *
+	 * @return string
+	 */
+	protected function get_collection_key(): string {
+		return 'orders';
+	}
+
+	/**
+	 * Line items are only returned when the input asks for them.
+	 *
+	 * @param array $input Ability input.
+	 * @return array
+	 */
+	protected function get_format_args( array $input ): array {
+		return empty( $input['include_line_items'] ) ? array( 'exclude' => array( 'line_items' ) ) : array();
+	}
+
+	/**
+	 * Find the orders for an ID or for the filters.
 	 *
 	 * @param array $input Ability input.
 	 * @return array|\WP_Error
-	 *
-	 * @since 10.9.0
 	 */
-	public static function execute( array $input ) {
-		$include_line_items = (bool) ( $input['include_line_items'] ?? false );
-
+	protected function query( array $input ) {
 		if ( ! empty( $input['id'] ) && ! empty( $input['filters'] ) ) {
 			return new \WP_Error(
 				'woocommerce_ability_filters_with_id',
@@ -87,14 +102,14 @@ class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
 		}
 
 		if ( ! empty( $input['id'] ) ) {
-			$order = self::get_order_from_input( $input );
+			$order = $this->load_resource( (int) $input['id'] );
 
 			if ( is_wp_error( $order ) ) {
 				return $order;
 			}
 
 			return array(
-				'orders'      => array( self::format_order_for_response( $order, $include_line_items ) ),
+				'items'       => array( $order ),
 				'total_pages' => 1,
 				'page'        => 1,
 				'per_page'    => 1,
@@ -155,7 +170,7 @@ class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
 			$args['date_query'][] = $modified_date_query;
 		}
 
-		$extension_args = ExtensibleAbilities::get_query_args( 'order', $input );
+		$extension_args = $this->get_extension_query_args( $input );
 		if ( is_wp_error( $extension_args ) ) {
 			return $extension_args;
 		}
@@ -188,12 +203,7 @@ class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
 		$pages   = is_object( $results ) && isset( $results->max_num_pages ) ? (int) $results->max_num_pages : ( count( $orders ) > 0 ? 1 : 0 );
 
 		return array(
-			'orders'      => array_map(
-				static function ( $order ) use ( $include_line_items ) {
-					return self::format_order_for_response( $order, $include_line_items );
-				},
-				$orders
-			),
+			'items'       => $orders,
 			'total_pages' => $pages,
 			'page'        => $page,
 			'per_page'    => $per_page,
@@ -237,8 +247,8 @@ class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
 	 *
 	 * @return array
 	 */
-	private static function get_input_schema(): array {
-		$schema = array(
+	private static function build_input_schema(): array {
+		return array(
 			'type'                 => 'object',
 			'properties'           => array(
 				'id'                 => array(
@@ -340,7 +350,6 @@ class OrdersQuery extends AbstractDomainAbility implements AbilityDefinition {
 			'additionalProperties' => false,
 			'default'              => array(),
 		);
-		return ExtensibleAbilities::add_query_filters_schema( $schema, 'order' );
 	}
 
 	/**

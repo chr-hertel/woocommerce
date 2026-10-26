@@ -42,7 +42,6 @@ class ProductCreate extends ActionableAbility {
 			),
 			'category'            => 'woocommerce',
 			'input_schema'        => self::build_input_schema(),
-			'output_schema'       => self::get_entity_output_schema( 'product', self::get_product_output_schema() ),
 			'permission_callback' => array( __CLASS__, 'can_create_product' ),
 			'meta'                => array(
 				'show_in_rest' => true,
@@ -125,18 +124,6 @@ class ProductCreate extends ActionableAbility {
 	 */
 	public function save( $subject ) {
 		return self::save_product( $subject, 'woocommerce_product_create_failed' );
-	}
-
-	/**
-	 * The ability output for the saved product.
-	 *
-	 * @param \WC_Product $subject Saved product.
-	 * @return array
-	 */
-	public function prepare_response( $subject ): array {
-		return array(
-			'product' => self::format_product_for_response( $subject ),
-		);
 	}
 
 	/**
