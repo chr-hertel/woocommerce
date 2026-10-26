@@ -7,13 +7,14 @@ declare( strict_types=1 );
 
 namespace Automattic\WooCommerce\Internal\Abilities\Resources;
 
+use Automattic\WooCommerce\Abilities\AbilityResources;
 use Automattic\WooCommerce\Enums\ProductStatus;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The `product` resource: the fields that abilities return for a product, and
- * how a product is loaded and checked.
+ * The `product` and `product_term` resources: the fields that abilities return
+ * for them, and how a product is loaded and checked.
  *
  * @extends DataResource<\WC_Product>
  *
@@ -23,6 +24,8 @@ class ProductResource extends DataResource {
 
 	public const NAME = 'product';
 
+	public const TERM = 'product_term';
+
 	/**
 	 * Resource name.
 	 *
@@ -30,6 +33,19 @@ class ProductResource extends DataResource {
 	 */
 	public function get_name(): string {
 		return self::NAME;
+	}
+
+	/**
+	 * Register the product and its terms, which the `categories`, `tags` and `brands` fields refer to.
+	 */
+	public function register(): void {
+		parent::register();
+		AbilityResources::register( self::TERM );
+		foreach ( self::get_term_fields() as $field => $args ) {
+			$args['resource'] = self::TERM;
+			$args['field']    = $field;
+			AbilityResources::add_field( $args );
+		}
 	}
 
 	/**
@@ -198,8 +214,59 @@ class ProductResource extends DataResource {
 					),
 					'get_callback' => static fn( \WC_Product $product ) => $product instanceof \WC_Product_Grouped ? array_map( 'absint', $product->get_children( 'edit' ) ) : array(),
 				),
+				'categories'       => self::terms( 'product_cat', static fn( \WC_Product $product ) => $product->get_category_ids( 'edit' ) ),
+				'tags'             => self::terms( 'product_tag', static fn( \WC_Product $product ) => $product->get_tag_ids( 'edit' ) ),
+				'brands'           => self::terms( 'product_brand', static fn( \WC_Product $product ) => $product->get_brand_ids( 'edit' ) ),
 			),
 			$this->dates( 'created', 'modified' )
+		);
+	}
+
+	/**
+	 * A field that lists the terms of a product in a taxonomy. Loading a product caches its terms, so reading them adds no query per product.
+	 *
+	 * @param string   $taxonomy     Taxonomy, such as `product_cat`.
+	 * @param callable $get_term_ids Returns the term IDs of a product.
+	 * @return array<string, mixed>
+	 */
+	private static function terms( string $taxonomy, callable $get_term_ids ): array {
+		return array(
+			'schema'       => array(
+				'type'  => 'array',
+				'items' => array(
+					'$ref'   => self::TERM,
+					'fields' => array( 'id', 'name', 'slug' ),
+				),
+			),
+			'get_callback' => static function ( \WC_Product $product ) use ( $taxonomy, $get_term_ids ): array {
+				if ( ! taxonomy_exists( $taxonomy ) ) {
+					return array();
+				}
+				$terms = array_map( static fn( $term_id ) => get_term( (int) $term_id, $taxonomy ), $get_term_ids( $product ) );
+				return array_values( array_filter( $terms, static fn( $term ) => $term instanceof \WP_Term ) );
+			},
+		);
+	}
+
+	/**
+	 * Fields of a product term, in output order.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function get_term_fields(): array {
+		return array(
+			'id'   => array(
+				'schema'       => array( 'type' => 'integer' ),
+				'get_callback' => static fn( \WP_Term $term ) => $term->term_id,
+			),
+			'name' => array(
+				'schema'       => array( 'type' => 'string' ),
+				'get_callback' => static fn( \WP_Term $term ) => html_entity_decode( $term->name, ENT_QUOTES | ENT_HTML5 ),
+			),
+			'slug' => array(
+				'schema'       => array( 'type' => 'string' ),
+				'get_callback' => static fn( \WP_Term $term ) => $term->slug,
+			),
 		);
 	}
 }

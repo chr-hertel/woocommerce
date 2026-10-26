@@ -27,6 +27,15 @@ class ProductsQuery extends QueryAbility {
 	public const ABILITY_NAME = 'woocommerce/products-query';
 
 	/**
+	 * Taxonomies of the term filters, keyed by input property.
+	 */
+	private const TERM_FILTERS = array(
+		'category' => 'product_cat',
+		'tag'      => 'product_tag',
+		'brand'    => 'product_brand',
+	);
+
+	/**
 	 * Get the ability registration arguments.
 	 *
 	 * @return array
@@ -149,6 +158,16 @@ class ProductsQuery extends QueryAbility {
 			return $extension_args;
 		}
 
+		foreach ( self::TERM_FILTERS as $field => $taxonomy ) {
+			if ( ! empty( $input[ $field ] ) && is_array( $input[ $field ] ) ) {
+				$extension_args['tax_query'][] = array(
+					'taxonomy' => $taxonomy,
+					'field'    => 'term_id',
+					'terms'    => array_map( 'absint', $input[ $field ] ),
+				);
+			}
+		}
+
 		$args[ AbilitiesLoader::EXTENSION_QUERY_VAR ] = $extension_args;
 
 		$results  = wc_get_products( $args );
@@ -211,6 +230,9 @@ class ProductsQuery extends QueryAbility {
 					'type' => 'string',
 					'enum' => array_keys( wc_get_product_stock_status_options() ),
 				),
+				'category'           => self::get_term_filter_input_schema( __( 'Only products in any of these product category IDs, including their child categories.', 'woocommerce' ) ),
+				'tag'                => self::get_term_filter_input_schema( __( 'Only products with any of these product tag IDs.', 'woocommerce' ) ),
+				'brand'              => self::get_term_filter_input_schema( __( 'Only products of any of these brand IDs.', 'woocommerce' ) ),
 				'page'               => array(
 					'type'    => 'integer',
 					'default' => 1,
@@ -225,6 +247,23 @@ class ProductsQuery extends QueryAbility {
 			),
 			'additionalProperties' => false,
 			'default'              => array(),
+		);
+	}
+
+	/**
+	 * Schema of a filter that takes term IDs.
+	 *
+	 * @param string $description Filter description.
+	 * @return array
+	 */
+	private static function get_term_filter_input_schema( string $description ): array {
+		return array(
+			'type'        => 'array',
+			'description' => $description,
+			'items'       => array(
+				'type'    => 'integer',
+				'minimum' => 1,
+			),
 		);
 	}
 }
