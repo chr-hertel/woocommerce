@@ -14,11 +14,13 @@ use Automattic\WooCommerce\Internal\Abilities\Domain\OrderAddNote;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderNotesQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderUpdateStatus;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrdersQuery;
+use Automattic\WooCommerce\Internal\Abilities\Domain\PaymentGatewaysQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductCreate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductDelete;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductUpdate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductsQuery;
 use Automattic\WooCommerce\Internal\Abilities\Resources\OrderResource;
+use Automattic\WooCommerce\Internal\Abilities\Resources\PaymentGatewayResource;
 use Automattic\WooCommerce\Internal\Abilities\Resources\ProductResource;
 
 defined( 'ABSPATH' ) || exit;
@@ -49,6 +51,7 @@ class AbilitiesLoader {
 		ProductCreate::class,
 		ProductDelete::class,
 		ProductUpdate::class,
+		PaymentGatewaysQuery::class,
 	);
 
 	/**
@@ -111,6 +114,7 @@ class AbilitiesLoader {
 	public static function register_core_resources(): void {
 		( new ProductResource() )->register();
 		( new OrderResource() )->register();
+		( new PaymentGatewayResource() )->register();
 	}
 
 	/**
