@@ -18,8 +18,12 @@ use Automattic\WooCommerce\Internal\Abilities\Domain\ProductCreate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductDelete;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductUpdate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductsQuery;
+use Automattic\WooCommerce\Internal\Abilities\Domain\SystemStatusGet;
+use Automattic\WooCommerce\Internal\Abilities\Domain\SystemStatusToolsQuery;
 use Automattic\WooCommerce\Internal\Abilities\Resources\OrderResource;
 use Automattic\WooCommerce\Internal\Abilities\Resources\ProductResource;
+use Automattic\WooCommerce\Internal\Abilities\Resources\StatusToolResource;
+use Automattic\WooCommerce\Internal\Abilities\Resources\SystemStatusResource;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -49,6 +53,8 @@ class AbilitiesLoader {
 		ProductCreate::class,
 		ProductDelete::class,
 		ProductUpdate::class,
+		SystemStatusGet::class,
+		SystemStatusToolsQuery::class,
 	);
 
 	/**
@@ -111,6 +117,8 @@ class AbilitiesLoader {
 	public static function register_core_resources(): void {
 		( new ProductResource() )->register();
 		( new OrderResource() )->register();
+		( new SystemStatusResource() )->register();
+		( new StatusToolResource() )->register();
 	}
 
 	/**
