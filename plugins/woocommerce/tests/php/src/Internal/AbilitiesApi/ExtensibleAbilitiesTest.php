@@ -898,7 +898,7 @@ class ExtensibleAbilitiesTest extends \WC_REST_Unit_Test_Case {
 		$this->assertSame( self::CODE_SCHEMA, $product['properties']['test-ext']['properties']['code'] );
 		$this->assertSame( array( 'type' => 'string' ), $order['extensions']['properties']['test-ext']['properties']['note'] );
 		$this->assertSame( array( 'type' => 'string' ), $order['line_items']['items']['properties']['extensions']['properties']['test-ext']['properties']['gift'] );
-		$this->assertSame( array(), AbilityResources::output_schema( array( 'resource' => 'customer' ) )['properties'] );
+		$this->assertSame( array(), AbilityResources::output_schema( array( 'resource' => 'ticket' ) )['properties'] );
 		$this->assertFalse( $products['additionalProperties'] );
 		$this->assertFalse( $products['properties']['test-ext']['additionalProperties'] );
 	}
