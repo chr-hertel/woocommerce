@@ -1,0 +1,4 @@
+Significance: minor
+Type: add
+
+Add the woocommerce/customers-query ability, which finds customers with their order count and total spent.
