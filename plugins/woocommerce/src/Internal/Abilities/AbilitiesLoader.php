@@ -16,9 +16,11 @@ use Automattic\WooCommerce\Internal\Abilities\Domain\OrderUpdateStatus;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrdersQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductCreate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductDelete;
+use Automattic\WooCommerce\Internal\Abilities\Domain\ProductReviewsQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductUpdate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductsQuery;
 use Automattic\WooCommerce\Internal\Abilities\Resources\OrderResource;
+use Automattic\WooCommerce\Internal\Abilities\Resources\ProductReviewResource;
 use Automattic\WooCommerce\Internal\Abilities\Resources\ProductResource;
 
 defined( 'ABSPATH' ) || exit;
@@ -49,6 +51,7 @@ class AbilitiesLoader {
 		ProductCreate::class,
 		ProductDelete::class,
 		ProductUpdate::class,
+		ProductReviewsQuery::class,
 	);
 
 	/**
@@ -111,6 +114,7 @@ class AbilitiesLoader {
 	public static function register_core_resources(): void {
 		( new ProductResource() )->register();
 		( new OrderResource() )->register();
+		( new ProductReviewResource() )->register();
 	}
 
 	/**
