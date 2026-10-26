@@ -255,17 +255,35 @@ class ProductResource extends DataResource {
 	 */
 	private static function get_term_fields(): array {
 		return array(
-			'id'   => array(
+			'id'          => array(
 				'schema'       => array( 'type' => 'integer' ),
 				'get_callback' => static fn( \WP_Term $term ) => $term->term_id,
 			),
-			'name' => array(
+			'name'        => array(
 				'schema'       => array( 'type' => 'string' ),
 				'get_callback' => static fn( \WP_Term $term ) => html_entity_decode( $term->name, ENT_QUOTES | ENT_HTML5 ),
 			),
-			'slug' => array(
+			'slug'        => array(
 				'schema'       => array( 'type' => 'string' ),
 				'get_callback' => static fn( \WP_Term $term ) => $term->slug,
+			),
+			'parent'      => array(
+				'schema'       => array(
+					'type'        => 'integer',
+					'description' => __( 'Parent term ID, 0 for a top-level term.', 'woocommerce' ),
+				),
+				'get_callback' => static fn( \WP_Term $term ) => $term->parent,
+			),
+			'description' => array(
+				'schema'       => array( 'type' => 'string' ),
+				'get_callback' => static fn( \WP_Term $term ) => wp_strip_all_tags( $term->description ),
+			),
+			'count'       => array(
+				'schema'       => array(
+					'type'        => 'integer',
+					'description' => __( 'Number of published products with the term.', 'woocommerce' ),
+				),
+				'get_callback' => static fn( \WP_Term $term ) => $term->count,
 			),
 		);
 	}
