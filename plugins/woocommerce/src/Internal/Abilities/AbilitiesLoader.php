@@ -10,6 +10,9 @@ namespace Automattic\WooCommerce\Internal\Abilities;
 use Automattic\WooCommerce\Abilities\AbilityDefinition;
 use Automattic\WooCommerce\Abilities\AbilityResources;
 use Automattic\WooCommerce\Abilities\ResourceAbility;
+use Automattic\WooCommerce\Internal\Abilities\Domain\CouponCreate;
+use Automattic\WooCommerce\Internal\Abilities\Domain\CouponUpdate;
+use Automattic\WooCommerce\Internal\Abilities\Domain\CouponsQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderAddNote;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderNotesQuery;
 use Automattic\WooCommerce\Internal\Abilities\Domain\OrderUpdateStatus;
@@ -18,6 +21,7 @@ use Automattic\WooCommerce\Internal\Abilities\Domain\ProductCreate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductDelete;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductUpdate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductsQuery;
+use Automattic\WooCommerce\Internal\Abilities\Resources\CouponResource;
 use Automattic\WooCommerce\Internal\Abilities\Resources\OrderResource;
 use Automattic\WooCommerce\Internal\Abilities\Resources\ProductResource;
 
@@ -49,6 +53,9 @@ class AbilitiesLoader {
 		ProductCreate::class,
 		ProductDelete::class,
 		ProductUpdate::class,
+		CouponsQuery::class,
+		CouponCreate::class,
+		CouponUpdate::class,
 	);
 
 	/**
@@ -111,6 +118,7 @@ class AbilitiesLoader {
 	public static function register_core_resources(): void {
 		( new ProductResource() )->register();
 		( new OrderResource() )->register();
+		( new CouponResource() )->register();
 	}
 
 	/**
