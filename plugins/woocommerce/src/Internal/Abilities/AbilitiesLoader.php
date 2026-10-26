@@ -18,8 +18,12 @@ use Automattic\WooCommerce\Internal\Abilities\Domain\ProductCreate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductDelete;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductUpdate;
 use Automattic\WooCommerce\Internal\Abilities\Domain\ProductsQuery;
+use Automattic\WooCommerce\Internal\Abilities\Domain\ShippingZonesQuery;
+use Automattic\WooCommerce\Internal\Abilities\Domain\TaxRatesQuery;
 use Automattic\WooCommerce\Internal\Abilities\Resources\OrderResource;
 use Automattic\WooCommerce\Internal\Abilities\Resources\ProductResource;
+use Automattic\WooCommerce\Internal\Abilities\Resources\ShippingZoneResource;
+use Automattic\WooCommerce\Internal\Abilities\Resources\TaxRateResource;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -49,6 +53,8 @@ class AbilitiesLoader {
 		ProductCreate::class,
 		ProductDelete::class,
 		ProductUpdate::class,
+		ShippingZonesQuery::class,
+		TaxRatesQuery::class,
 	);
 
 	/**
@@ -111,6 +117,8 @@ class AbilitiesLoader {
 	public static function register_core_resources(): void {
 		( new ProductResource() )->register();
 		( new OrderResource() )->register();
+		( new ShippingZoneResource() )->register();
+		( new TaxRateResource() )->register();
 	}
 
 	/**
