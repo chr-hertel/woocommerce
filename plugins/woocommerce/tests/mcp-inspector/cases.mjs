@@ -22,6 +22,12 @@ export const CASES = [
 	},
 	{
 		ability: TERMS,
+		title: 'filters by comma-separated slugs sent as a string',
+		parameters: { taxonomy: 'product_tag', slug: 'mcp-alpha,mcp-beta' },
+		expect: { termSlugs: [ 'mcp-alpha', 'mcp-beta' ] },
+	},
+	{
+		ability: TERMS,
 		title: 'applies no slug filter for an empty list',
 		parameters: { taxonomy: 'product_tag', slug: [], per_page: 100 },
 		expect: { includesTermSlugs: FIXTURE_TAGS },
@@ -37,6 +43,12 @@ export const CASES = [
 		title: 'filters by one status sent as a string',
 		parameters: { status: 'on-hold' },
 		expect: { orderStatuses: [ 'on-hold' ] },
+	},
+	{
+		ability: ORDERS,
+		title: 'filters by comma-separated statuses sent as a string',
+		parameters: { status: 'completed,on-hold' },
+		expect: { orderStatuses: [ 'completed', 'on-hold' ] },
 	},
 	{
 		ability: ORDERS,

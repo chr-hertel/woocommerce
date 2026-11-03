@@ -18,36 +18,20 @@
 				"default": "shop_order"
 			},
 			"status": {
-				"description": "Filter by one order status slug, or a list of slugs, without the wc- prefix. Custom order types may add their own statuses.",
-				"anyOf": [
-					{
-						"type": "string",
-						"enum": [
-							"pending",
-							"processing",
-							"on-hold",
-							"completed",
-							"cancelled",
-							"refunded",
-							"failed"
-						]
-					},
-					{
-						"type": "array",
-						"items": {
-							"type": "string",
-							"enum": [
-								"pending",
-								"processing",
-								"on-hold",
-								"completed",
-								"cancelled",
-								"refunded",
-								"failed"
-							]
-						}
-					}
-				]
+				"description": "Limit results to these order status slugs, without the wc- prefix. Send one status as a list of one. An empty list applies no status filter. Custom order types may add their own statuses.",
+				"type": "array",
+				"items": {
+					"type": "string",
+					"enum": [
+						"pending",
+						"processing",
+						"on-hold",
+						"completed",
+						"cancelled",
+						"refunded",
+						"failed"
+					]
+				}
 			},
 			"customer_id": {
 				"type": "integer",

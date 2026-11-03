@@ -28,10 +28,7 @@ const TOKEN_BUDGET = 3000;
 const TOKEN_BUDGET_EXCEPTIONS = {};
 
 // Input fields still taking one value or a list. The list only shrinks: a fixed field fails until its entry is removed.
-const MIXED_TYPE_EXCEPTIONS = {
-	'woocommerce/orders-query': [ 'input.status' ],
-	'woocommerce/product-terms-query': [ 'input.slug' ],
-};
+const MIXED_TYPE_EXCEPTIONS = {};
 
 const infoSnapshot = ( name ) => `ability-info/${ name.replace( '/', '-' ) }`;
 
