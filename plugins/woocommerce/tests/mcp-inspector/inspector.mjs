@@ -15,7 +15,55 @@ const INSPECTOR_BIN =
 // The wp-env environment is found from the working directory, so this can point at a checkout whose env is already running.
 const WP_ENV_CWD = process.env.WP_ENV_CWD ?? PLUGIN_DIR;
 
+const WP_ENV = [
+	'exec',
+	'wp-env',
+	...( process.env.WP_ENV_CONFIG
+		? [ '--config', process.env.WP_ENV_CONFIG ]
+		: [] ),
+];
+
 const TIMEOUT_MS = 120_000;
+
+function exec( command, args, options = {} ) {
+	return new Promise( ( resolve, reject ) => {
+		const child = spawn( command, args, { timeout: TIMEOUT_MS, ...options } );
+		let stdout = '';
+		let stderr = '';
+		child.stdout.on( 'data', ( chunk ) => ( stdout += chunk ) );
+		child.stderr.on( 'data', ( chunk ) => ( stderr += chunk ) );
+		child.on( 'error', reject );
+		child.on( 'close', ( code ) =>
+			0 === code
+				? resolve( stdout.trim() )
+				: reject( new Error( `${ command } ${ args.join( ' ' ) } exited with ${ code }.\n${ stderr }${ stdout }` ) )
+		);
+	} );
+}
+
+let cliContainer;
+
+/**
+ * The `docker compose exec` that `wp-env run cli` performs. Calling it directly keeps concurrent calls away from
+ * wp-env's state file, which `wp-env run` rewrites on every call and can leave without the environment's runtime.
+ */
+function cliCommand() {
+	cliContainer ??= exec( 'pnpm', [ ...WP_ENV, 'status', '--json' ], { cwd: WP_ENV_CWD } ).then( ( output ) => {
+		const { status, installPath } = JSON.parse( output );
+		if ( 'running' !== status ) {
+			throw new Error( `The wp-env environment is ${ status }; start it first.` );
+		}
+		// wp-env falls back to 1000 where the host has no uid, as on Windows.
+		const user = `${ process.getuid?.() ?? 1000 }:${ process.getgid?.() ?? 1000 }`;
+		return [ 'docker', 'compose', '-f', path.join( installPath, 'docker-compose.yml' ), 'exec', '-T', '-w', '/var/www/html', '--user', user, 'cli' ];
+	} );
+	return cliContainer;
+}
+
+export async function wpCli( ...args ) {
+	const [ command, ...prefix ] = await cliCommand();
+	return exec( command, [ ...prefix, 'wp', ...args ] );
+}
 
 function toolArg( key, value ) {
 	const encoded =
@@ -28,22 +76,14 @@ function toolArg( key, value ) {
  *
  * Resolves with the parsed response even when the tool reports an error, which the CLI signals with a non-zero exit code.
  */
-export function inspect( { user, method, toolName, toolArgs = {} } ) {
+export async function inspect( { user, method, toolName, toolArgs = {} } ) {
 	if ( ! existsSync( INSPECTOR_BIN ) ) {
 		throw new Error(
 			`MCP Inspector is not installed at ${ INSPECTOR_BIN }. Install @modelcontextprotocol/inspector@2.11.0 and point MCP_INSPECTOR_BIN at its mcp-inspector binary.`
 		);
 	}
 
-	const args = [
-		'--cli',
-		'--transport',
-		'stdio',
-		'--cwd',
-		WP_ENV_CWD,
-		'--method',
-		method,
-	];
+	const args = [ '--cli', '--transport', 'stdio', '--method', method ];
 
 	if ( toolName ) {
 		args.push( '--tool-name', toolName );
@@ -55,11 +95,7 @@ export function inspect( { user, method, toolName, toolArgs = {} } ) {
 	// Without `--`, the Inspector takes the adapter's `--server=` as its own flag.
 	args.push(
 		'--',
-		'pnpm',
-		'exec',
-		'wp-env',
-		'run',
-		'cli',
+		...( await cliCommand() ),
 		'wp',
 		'mcp-adapter',
 		'serve',
@@ -67,19 +103,8 @@ export function inspect( { user, method, toolName, toolArgs = {} } ) {
 		`--user=${ user }`
 	);
 
-	const attempt = ( retries ) =>
-		run( args ).catch( ( error ) => {
-			if ( retries > 0 && WP_ENV_RACE.test( error.message ) ) {
-				return attempt( retries - 1 );
-			}
-			throw error;
-		} );
-
-	return attempt( 2 );
+	return run( args );
 }
-
-// Concurrent `wp-env run` calls occasionally read the environment's state while another call rewrites it.
-const WP_ENV_RACE = /Environment not initialized/;
 
 function run( args ) {
 	return new Promise( ( resolve, reject ) => {

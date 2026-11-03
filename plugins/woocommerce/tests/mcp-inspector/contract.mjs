@@ -56,3 +56,20 @@ export function namesDefault( field ) {
 export function estimateTokens( value ) {
 	return Math.ceil( JSON.stringify( value ).length / 4 );
 }
+
+/**
+ * Paths of the fields that take a type list or one value or a list of it, which clients mapping schemas onto one type per field reject.
+ */
+export function mixedTypePaths( prefix, schema ) {
+	return Object.entries( collectProperties( prefix, schema ) )
+		.filter( ( [ , field ] ) => {
+			if ( Array.isArray( field.type ) ) {
+				return true;
+			}
+			const types = [ ...( field.anyOf ?? [] ), ...( field.oneOf ?? [] ) ].map(
+				( branch ) => branch?.type
+			);
+			return types.includes( 'array' ) && new Set( types ).size > 1;
+		} )
+		.map( ( [ path ] ) => path );
+}

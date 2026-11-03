@@ -11,9 +11,12 @@ import { assertMatchesSnapshot, snapshotPath, SNAPSHOT_DIR } from './snapshot.mj
 import {
 	collectProperties,
 	estimateTokens,
+	mixedTypePaths,
 	namesDefault,
 	restatesEnum,
 } from './contract.mjs';
+import { CASES } from './cases.mjs';
+import { seedFixtures } from './fixtures.mjs';
 
 const ADMIN = 'admin';
 const CUSTOMER = 'customer';
@@ -24,7 +27,15 @@ const CONCURRENCY = Number( process.env.MCP_INSPECTOR_CONCURRENCY ?? 4 );
 const TOKEN_BUDGET = 3000;
 const TOKEN_BUDGET_EXCEPTIONS = {};
 
+// Input fields still taking one value or a list. The list only shrinks: a fixed field fails until its entry is removed.
+const MIXED_TYPE_EXCEPTIONS = {
+	'woocommerce/orders-query': [ 'input.status' ],
+	'woocommerce/product-terms-query': [ 'input.slug' ],
+};
+
 const infoSnapshot = ( name ) => `ability-info/${ name.replace( '/', '-' ) }`;
+
+await seedFixtures();
 
 const toolsList = await inspect( { user: ADMIN, method: 'tools/list' } );
 
@@ -75,6 +86,14 @@ describe( 'ability info', () => {
 					.map( ( [ path, field ] ) => `${ path }: ${ field.description }` );
 
 				assert.deepEqual( offenders, [], "Declare it as the schema's `default` instead." );
+			} );
+
+			test( 'gives every input field one type', () => {
+				const allowed = MIXED_TYPE_EXCEPTIONS[ info.name ] ?? [];
+				const mixed = mixedTypePaths( 'input', info.input_schema );
+
+				assert.deepEqual( mixed.filter( ( path ) => ! allowed.includes( path ) ), [], 'Give each field one type; send one value as a list of one.' );
+				assert.deepEqual( allowed.filter( ( path ) => ! mixed.includes( path ) ), [], 'Remove the exception; the field has one type now.' );
 			} );
 
 			test( 'stays within the token budget', () => {
@@ -130,6 +149,36 @@ describe( 'every ability refuses a customer', { concurrency: CONCURRENCY }, () =
 
 			assert.equal( response.isError, true, JSON.stringify( payloadOf( response ) ) );
 			assert.match( String( payloadOf( response ) ), /permission/i );
+		} );
+	}
+} );
+
+describe( 'ability behaviour', { concurrency: CONCURRENCY }, () => {
+	for ( const { ability, title, parameters, expect } of CASES ) {
+		test( `${ ability } ${ title }`, async () => {
+			const response = await callTool( ADMIN, 'mcp-adapter-execute-ability', {
+				ability_name: ability,
+				parameters,
+			} );
+			const payload = payloadOf( response );
+
+			if ( expect.refused ) {
+				assert.equal( response.isError, true, JSON.stringify( payload ) );
+				assert.match( String( payload ), expect.refused );
+				return;
+			}
+
+			assert.equal( payload.success, true, JSON.stringify( payload ) );
+			if ( expect.termSlugs ) {
+				assert.deepEqual( payload.data.terms.map( ( term ) => term.slug ).sort(), expect.termSlugs );
+			}
+			if ( expect.includesTermSlugs ) {
+				const slugs = payload.data.terms.map( ( term ) => term.slug );
+				assert.deepEqual( expect.includesTermSlugs.filter( ( slug ) => ! slugs.includes( slug ) ), [] );
+			}
+			if ( expect.orderStatuses ) {
+				assert.deepEqual( [ ...new Set( payload.data.orders.map( ( order ) => order.status ) ) ].sort(), expect.orderStatuses );
+			}
 		} );
 	}
 } );

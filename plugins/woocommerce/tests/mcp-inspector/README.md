@@ -7,35 +7,28 @@ These tests drive WooCommerce's abilities the way an MCP client sees them: [MCP 
 - Its schema stays within a token budget, estimated at four characters per token.
 - A readonly ability without required input runs with `{}`.
 - A customer is refused.
+- No input field takes a type list or one value or a list of it, apart from the entries in `MIXED_TYPE_EXCEPTIONS`. The list only shrinks: once a field has one type, its entry has to go.
+
+It also runs the calls in `cases.mjs` against fixtures the suite creates (product tags `mcp-alpha`, `mcp-beta`, `mcp-gamma`, one order per status in `fixtures.mjs`, and a `customer` user), and checks what an MCP client gets back. Add a case when a change alters what an ability accepts or returns.
 
 ## Setup
 
-Add the MCP Adapter to the development environment with a `.wp-env.override.json` in `plugins/woocommerce`:
-
-```json
-{
-    "plugins": [ ".", "https://downloads.wordpress.org/plugin/mcp-adapter.0.7.1.zip" ],
-    "config": {
-        "WP_MEMORY_LIMIT": "1G",
-        "WP_DEBUG_DISPLAY": false
-    }
-}
-```
-
-Then start the environment and create the user the permission tests run as:
+The suite has its own environment, with the MCP Adapter, on port 8098:
 
 ```bash
-pnpm env:dev:start
-pnpm exec wp-env run cli wp user create customer customer@example.com --role=customer
+pnpm env:mcp-inspector:start
 ```
 
 ## Running
 
 ```bash
-pnpm test:mcp-inspector
+pnpm test:mcp-inspector:ci
 ```
 
+This installs the Inspector outside the workspace and runs the suite against that environment, the way CI's "MCP Inspector contract tests" job does. `pnpm test:mcp-inspector` runs the suite alone, configured by:
+
 - `MCP_INSPECTOR_BIN` sets the Inspector binary.
+- `WP_ENV_CONFIG` sets the wp-env config file, such as `.wp-env.mcp-inspector.json`. Without it, the suite uses the development environment, which then needs the MCP Adapter.
 - `WP_ENV_CWD` points at another checkout whose environment is already running.
 - `MCP_INSPECTOR_CONCURRENCY` sets how many Inspector calls run at once. The default is 4.
 - `UPDATE_SNAPSHOTS=1` rewrites the snapshots after an intended change.

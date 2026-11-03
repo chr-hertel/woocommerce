@@ -37,6 +37,8 @@
 		"env:e2e:start": "pnpm wp-env:e2e start --update",
 		"env:e2e:stop": "pnpm wp-env:e2e stop",
 		"env:e2e:tracking": "ENABLE_TRACKING=1 pnpm env:e2e:start",
+		"env:mcp-inspector:destroy": "pnpm wp-env:mcp-inspector destroy",
+		"env:mcp-inspector:start": "pnpm wp-env:mcp-inspector start --update",
 		"env:performance-init": "./tests/performance/bin/init-environment.sh",
 		"env:perf": "pnpm env:e2e:start && pnpm env:performance-init",
 		"env:restart": "pnpm env:dev:restart",
@@ -100,6 +102,7 @@
 		"test:php:hpos-off": "sh ./client/blocks/bin/copy-blocks-json.sh && DISABLE_HPOS=1 ./vendor/bin/phpunit -c ./phpunit.xml",
 		"test:php:watch": "sh ./client/blocks/bin/copy-blocks-json.sh && ./vendor/bin/phpunit-watcher watch",
 		"test:mcp-inspector": "node --test 'tests/mcp-inspector/*.test.mjs'",
+		"test:mcp-inspector:ci": "./tests/mcp-inspector/bin/ci.sh",
 		"test:metrics": "USE_WP_ENV=1 pnpm playwright test --config=tests/metrics/playwright.config.js",
 		"test:metrics:ci": "../../.github/workflows/scripts/run-metrics.sh",
 		"test:metrics:ci:unified-editor-assets": "pnpm wp-env:e2e run cli wp option update woocommerce_feature_block_editor_unified_assets_enabled yes && pnpm test:metrics:ci",
@@ -124,6 +127,7 @@
 		"watch:build:project:packages": "node ./bin/watch-packages.mjs",
 		"wp-env": "wp-env",
 		"wp-env:e2e": "wp-env --config .wp-env.e2e.json",
+		"wp-env:mcp-inspector": "wp-env --config .wp-env.mcp-inspector.json",
 		"wp-env:test": "wp-env --config .wp-env.test.json"
 	},
 	"lint-staged": {
@@ -702,6 +706,29 @@
 						"resultsPath": "tests/e2e/test-results",
 						"publish": true
 					}
+				},
+				{
+					"name": "MCP Inspector contract tests",
+					"testType": "api",
+					"command": "test:mcp-inspector:ci",
+					"optional": true,
+					"changes": [
+						"composer.json",
+						"composer.lock",
+						"includes/**/*.php",
+						"src/**/*.php",
+						"tests/mcp-inspector/**",
+						".wp-env.mcp-inspector.json",
+						"woocommerce.php"
+					],
+					"onlyForDependencies": [],
+					"testEnv": {
+						"start": "env:mcp-inspector:start"
+					},
+					"events": [
+						"pull_request",
+						"push"
+					]
 				},
 				{
 					"name": "Core API tests",
