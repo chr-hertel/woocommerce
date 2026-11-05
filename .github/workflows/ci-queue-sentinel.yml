@@ -1,7 +1,7 @@
 name: 'CI Queue Sentinel'
 
 # Toggles the CI_QUEUE_OVERFLOW repository variable when the Actions queue
-# backs up; ci.yml routes e2e jobs to the "Woo Core Dedicated CI" group while
+# backs up; ci.yml routes e2e and PHP unit jobs to the "Woo Core Dedicated CI" group while
 # it is set. Variables written here must only be consumed via `env:` or `${{ }}`
 # comparisons, never interpolated into `run:` blocks.
 on:
