@@ -7,15 +7,20 @@
 	convertNoticesToExceptions="true"
 	convertWarningsToExceptions="true"
 	verbose="true"
-	defaultTestSuite="wc-phpunit-legacy,wc-phpunit-main"
+	defaultTestSuite="wc-phpunit-legacy,wc-phpunit-main,wc-phpunit-src"
 	xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd">
 	<testsuites>
 		<testsuite name="wc-phpunit-legacy">
 			<directory suffix=".php">./tests/legacy/unit-tests</directory>
 		</testsuite>
+		<!-- Split so CI can run the slow PHP 7.4 jobs in two shards of similar length. -->
 		<testsuite name="wc-phpunit-main">
 			<directory suffix=".php">./tests/php</directory>
 			<exclude>./tests/php/helpers</exclude>
+			<exclude>./tests/php/src</exclude>
+		</testsuite>
+		<testsuite name="wc-phpunit-src">
+			<directory suffix=".php">./tests/php/src</directory>
 			<exclude>./tests/php/src/Blocks/BlockPatterns/patterns</exclude>
 			<!-- Email-template fixtures are plain PHP that emit markup at
 			     include-time (top-level HTML and `echo`). Exclude to silence them. -->

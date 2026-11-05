@@ -1,0 +1,4 @@
+Significance: patch
+Type: dev
+Comment: Shorten CI runs on pull requests by sharding and rescheduling test jobs; no production change.
+

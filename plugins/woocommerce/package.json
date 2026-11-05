@@ -220,7 +220,10 @@
 					"name": "PHP: 7.4 WP: latest - 1",
 					"testType": "unit:php",
 					"command": "test:php:env",
-					"shardingArguments": [],
+					"shardingArguments": [
+						"--testsuite=wc-phpunit-legacy,wc-phpunit-main",
+						"--testsuite=wc-phpunit-src"
+					],
 					"onlyForDependencies": [],
 					"changes": [
 						"client/admin/config/*.json",
@@ -253,7 +256,10 @@
 					"optional": true,
 					"testType": "unit:php",
 					"command": "test:php:env",
-					"shardingArguments": [],
+					"shardingArguments": [
+						"--testsuite=wc-phpunit-legacy,wc-phpunit-main",
+						"--testsuite=wc-phpunit-src"
+					],
 					"onlyForDependencies": [],
 					"changes": [
 						"tests/legacy/**",
