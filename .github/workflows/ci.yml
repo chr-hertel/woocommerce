@@ -128,7 +128,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       lint-jobs: ${{ steps.project-jobs.outputs.lint-jobs }}
-      test-jobs: ${{ steps.project-jobs.outputs.test-jobs }}
+      shared-build-test-jobs: ${{ steps.split-test-jobs.outputs.shared-build }}
+      standalone-test-jobs: ${{ steps.split-test-jobs.outputs.standalone }}
       report-jobs: ${{ steps.project-jobs.outputs.report-jobs }}
       shared-plugin-build-needed: ${{ steps.project-jobs.outputs.shared-plugin-build-needed }}
       shared-plugin-build-has-required-consumers: ${{ steps.project-jobs.outputs.shared-plugin-build-has-required-consumers }}
@@ -184,6 +185,16 @@ jobs:
 
             const child_process = require( 'node:child_process' );
             child_process.execSync( `pnpm utils ci-jobs ${ prNumberFilter } ${ baseRefFilter } --event ${ githubEvent }` );
+
+      # Jobs that don't consume the shared plugin build get their own matrix, so they
+      # can start without waiting for that build.
+      - name: Setup - split test jobs by shared plugin build use
+        id: 'split-test-jobs'
+        env:
+          TEST_JOBS: ${{ steps.project-jobs.outputs.test-jobs }}
+        run: |
+          echo "shared-build=$( jq -c '[ .[] | select( .usesSharedPluginBuild == true ) ]' <<< "${TEST_JOBS:-[]}" )" >> "$GITHUB_OUTPUT"
+          echo "standalone=$( jq -c '[ .[] | select( .usesSharedPluginBuild != true ) ]' <<< "${TEST_JOBS:-[]}" )" >> "$GITHUB_OUTPUT"
 
   project-lint-jobs:
     name: "Lint - ${{ matrix.projectName }} ${{ ( matrix.optional && ' (optional)' ) || '' }}"
@@ -312,14 +323,14 @@ jobs:
     runs-on: ${{ github.event.pull_request.user.login == 'woocommercebot' && fromJSON('{"group":"WooCommerce Release Checks"}') || ( vars.CI_QUEUE_OVERFLOW == '1' && matrix.testType == 'e2e' && ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository ) ) && fromJSON('{"group":"Woo Core Dedicated CI"}') || 'ubuntu-latest' }}
     timeout-minutes: 35
     needs: [ 'identify-jobs-to-run', 'project-jobs', 'woocommerce-plugin-build-artifact' ]
-    if: ${{ !cancelled() && ( github.event_name != 'pull_request' || needs.identify-jobs-to-run.outputs.needs-code-validation == 'true' ) && needs.project-jobs.outputs.test-jobs != '[]' && ( needs.woocommerce-plugin-build-artifact.result == 'success' || needs.woocommerce-plugin-build-artifact.result == 'skipped' || needs.project-jobs.outputs.shared-plugin-build-has-required-consumers != 'true' ) }}
+    if: ${{ !cancelled() && ( github.event_name != 'pull_request' || needs.identify-jobs-to-run.outputs.needs-code-validation == 'true' ) && needs.project-jobs.outputs.shared-build-test-jobs != '[]' && ( needs.woocommerce-plugin-build-artifact.result == 'success' || needs.woocommerce-plugin-build-artifact.result == 'skipped' || needs.project-jobs.outputs.shared-plugin-build-has-required-consumers != 'true' ) }}
     env: ${{ matrix.testEnv.envVars }}
     strategy:
       fail-fast: false
       max-parallel: 30
       matrix:
-        include: ${{ fromJSON( needs.project-jobs.outputs.test-jobs ) }}
-    steps:
+        include: ${{ fromJSON( needs.project-jobs.outputs.shared-build-test-jobs ) }}
+    steps: &project-test-steps
       - uses: 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' # v7.0.0
         name: 'Checkout'
         with:
@@ -444,7 +455,7 @@ jobs:
         if: ${{ always() && matrix.report.resultsPath != '' && matrix.testType == 'e2e' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: 'last-run__${{ strategy.job-index }}'
+          pattern: 'last-run__${{ github.job }}__${{ strategy.job-index }}'
           path: '${{ runner.temp }}/last-run-info'
 
       - name: 'Run tests (${{ matrix.testType }})'
@@ -500,7 +511,7 @@ jobs:
         if: ${{ always() && matrix.report.resultsPath != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: 'last-run__${{ strategy.job-index }}'
+          name: 'last-run__${{ github.job }}__${{ strategy.job-index }}'
           path: '${{ env.ARTIFACTS_PATH }}/.last-run.json'
           if-no-files-found: ignore
           include-hidden-files: true
@@ -511,9 +522,23 @@ jobs:
         if: ${{ always() && matrix.report.resultsPath != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: '${{ matrix.report.resultsBlobName }}__${{ strategy.job-index }}'
+          name: '${{ matrix.report.resultsBlobName }}__${{ github.job }}__${{ strategy.job-index }}'
           path: ${{ env.ARTIFACTS_PATH }}
           retention-days: 7
+
+  project-standalone-test-jobs:
+    name: '${{ matrix.name }}'
+    runs-on: ${{ github.event.pull_request.user.login == 'woocommercebot' && fromJSON('{"group":"WooCommerce Release Checks"}') || ( vars.CI_QUEUE_OVERFLOW == '1' && matrix.testType == 'e2e' && ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository ) ) && fromJSON('{"group":"Woo Core Dedicated CI"}') || 'ubuntu-latest' }}
+    timeout-minutes: 35
+    needs: [ 'identify-jobs-to-run', 'project-jobs' ]
+    if: ${{ !cancelled() && ( github.event_name != 'pull_request' || needs.identify-jobs-to-run.outputs.needs-code-validation == 'true' ) && needs.project-jobs.outputs.standalone-test-jobs != '[]' }}
+    env: ${{ matrix.testEnv.envVars }}
+    strategy:
+      fail-fast: false
+      max-parallel: 30
+      matrix:
+        include: ${{ fromJSON( needs.project-jobs.outputs.standalone-test-jobs ) }}
+    steps: *project-test-steps
 
   evaluate-project-jobs:
     # In order to add a required status check we need a consistent job that we can grab onto.
@@ -524,7 +549,7 @@ jobs:
     name: 'Evaluate Project Job Statuses'
     runs-on: ${{ github.event.pull_request.user.login == 'woocommercebot' && fromJSON('{"group":"WooCommerce Release Checks"}') || 'ubuntu-latest' }}
     timeout-minutes: 5
-    needs: [ 'project-jobs', 'woocommerce-plugin-build-artifact', 'project-lint-jobs', 'project-test-jobs', 'validate-changelog', 'validate-markdown', 'validate-syncpack', 'phpstan' ]
+    needs: [ 'project-jobs', 'woocommerce-plugin-build-artifact', 'project-lint-jobs', 'project-test-jobs', 'project-standalone-test-jobs', 'validate-changelog', 'validate-markdown', 'validate-syncpack', 'phpstan' ]
     # This job must run for all trigger types (not just PRs) so that alert-on-failure can access its outputs
     if: ${{ !cancelled() }}
     outputs:
@@ -557,7 +582,7 @@ jobs:
     name: 'Report results on Slack'
     runs-on: ${{ github.event.pull_request.user.login == 'woocommercebot' && fromJSON('{"group":"WooCommerce Release Checks"}') || 'ubuntu-latest' }}
     timeout-minutes: 5
-    needs: ['project-jobs', 'woocommerce-plugin-build-artifact', 'project-lint-jobs', 'project-test-jobs', 'evaluate-project-jobs']
+    needs: ['project-jobs', 'woocommerce-plugin-build-artifact', 'project-lint-jobs', 'project-test-jobs', 'project-standalone-test-jobs', 'evaluate-project-jobs']
     if: ${{ !cancelled() && github.event_name != 'pull_request' && github.repository == 'woocommerce/woocommerce' }}
     env:
       NON_SUCCESSFUL_JOBS: ${{ needs.evaluate-project-jobs.outputs.non_successful_jobs }}
@@ -601,11 +626,15 @@ jobs:
           # A shared plugin build failure skips the test jobs instead of failing them, so report it explicitly.
           pnpm utils slack-test-report -c "${{ needs.woocommerce-plugin-build-artifact.result }}" -r "$CHECKS_TYPE WooCommerce plugin build" -m "$COMMIT_MESSAGE" --config ".github/workflows/slack-report-config.json"
           pnpm utils slack-test-report -c "${{ needs.project-lint-jobs.result }}" -r "$CHECKS_TYPE linting" -m "$COMMIT_MESSAGE" --config ".github/workflows/slack-report-config.json"
-          pnpm utils slack-test-report -c "${{ needs.project-test-jobs.result }}" -r "$CHECKS_TYPE tests" -m "$COMMIT_MESSAGE" --config ".github/workflows/slack-report-config.json" --jobs-list "Failed:###$FAILED_JOBS"
+          TESTS_RESULT="${{ needs.project-test-jobs.result }}"
+          if [[ "$TESTS_RESULT" != "failure" && "${{ needs.project-standalone-test-jobs.result }}" != "skipped" ]]; then
+            TESTS_RESULT="${{ needs.project-standalone-test-jobs.result }}"
+          fi
+          pnpm utils slack-test-report -c "$TESTS_RESULT" -r "$CHECKS_TYPE tests" -m "$COMMIT_MESSAGE" --config ".github/workflows/slack-report-config.json" --jobs-list "Failed:###$FAILED_JOBS"
 
   test-reports:
     name: 'Test reports - ${{ matrix.report }}'
-    needs: ['identify-jobs-to-run', 'project-jobs', 'project-test-jobs', 'evaluate-project-jobs']
+    needs: ['identify-jobs-to-run', 'project-jobs', 'project-test-jobs', 'project-standalone-test-jobs', 'evaluate-project-jobs']
     if: ${{ !cancelled() && github.repository == 'woocommerce/woocommerce' && ( github.event_name != 'pull_request' || ( needs.identify-jobs-to-run.outputs.needs-code-validation == 'true' && ! github.event.pull_request.head.repo.fork ) ) && needs.project-jobs.outputs.report-jobs != '[]' }}
     strategy:
       fail-fast: false
