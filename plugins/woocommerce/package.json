@@ -211,7 +211,6 @@
 						}
 					},
 					"events": [
-						"pull_request",
 						"push",
 						"php-unit-php-8.3-wp-latest"
 					]
@@ -220,7 +219,10 @@
 					"name": "PHP: 7.4 WP: latest - 1",
 					"testType": "unit:php",
 					"command": "test:php:env",
-					"shardingArguments": [],
+					"shardingArguments": [
+						"--testsuite=wc-phpunit-legacy,wc-phpunit-main",
+						"--testsuite=wc-phpunit-src"
+					],
 					"onlyForDependencies": [],
 					"changes": [
 						"client/admin/config/*.json",
@@ -253,7 +255,10 @@
 					"optional": true,
 					"testType": "unit:php",
 					"command": "test:php:env",
-					"shardingArguments": [],
+					"shardingArguments": [
+						"--testsuite=wc-phpunit-legacy,wc-phpunit-main",
+						"--testsuite=wc-phpunit-src"
+					],
 					"onlyForDependencies": [],
 					"changes": [
 						"tests/legacy/**",
@@ -272,7 +277,6 @@
 						}
 					},
 					"events": [
-						"pull_request",
 						"push",
 						"php-unit-php-7.4-wp-prerelease"
 					]
